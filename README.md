@@ -67,8 +67,9 @@ CP Reminder 2.0 is a smart Android application built with **Jetpack Compose** an
 
 **Ganesh Karthik (GK)**
 * IIIT Jabalpur
-* Connect with me on [LinkedIn](www.linkedin.com/in/ganeshkarthikb) (Optional)
+* Connect with me on [LinkedIn](www.linkedin.com/in/ganeshkarthikb) 
 
 ---
 *Built with ❤️ for the Competitive Programming Community.*
+
 
