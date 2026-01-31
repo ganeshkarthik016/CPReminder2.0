@@ -9,31 +9,35 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 
 class ContestWorker(
-    private val context: Context,
+    context: Context,
     params: WorkerParameters
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
+        val context = applicationContext
+
         return try {
-            // 1. Fetch upcoming contests
-            val response = RetrofitInstance.api.getContestList(gym = false)
-            val contests = response.result.filter { it.phase == "BEFORE" }
+            // 1. Fetch Contests from Codeforces
+            val response = RetrofitInstance.api.getContestList()
+            if (response.status == "OK") {
+                val contests = response.result
 
-            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val currentTime = System.currentTimeMillis() / 1000 // Current time in seconds
+                // 2. Filter: Only upcoming contests
+                val upcomingContests = contests.filter { it.phase == "BEFORE" }
 
-            // 2. Loop through contests
-            for (contest in contests) {
-                // Calculate trigger time (Start Time - 30 mins)
-                val triggerTimeSeconds = contest.startTimeSeconds - 1800
+                for (contest in upcomingContests) {
+                    // Codeforces time is in Seconds, convert to Milliseconds
+                    val startTimeMillis = contest.startTimeSeconds * 1000L
 
-                // If the alarm time is in the future (and within the next 24 hours to be safe)
-                if (triggerTimeSeconds > currentTime && triggerTimeSeconds < currentTime + 86400) {
-                    scheduleAlarm(context, alarmManager, contest.id, contest.name, triggerTimeSeconds * 1000)
-                    Log.d("CP_REMINDER", "Scheduled alarm for ${contest.name} at $triggerTimeSeconds")
+                    // 3. Set Alarm for 30 MINUTES BEFORE start
+                    val triggerTime = startTimeMillis - (30 * 60 * 1000)
+
+                    // Only schedule if the time is in the future
+                    if (triggerTime > System.currentTimeMillis()) {
+                        scheduleAlarm(context, contest.name, triggerTime, contest.id)
+                    }
                 }
             }
-
             Result.success()
         } catch (e: Exception) {
             e.printStackTrace()
@@ -41,29 +45,32 @@ class ContestWorker(
         }
     }
 
-    private fun scheduleAlarm(context: Context, alarmManager: AlarmManager, id: Int, name: String, timeMillis: Long) {
+    private fun scheduleAlarm(context: Context, name: String, triggerTime: Long, contestId: Int) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+        // 1. Prepare the Intent to trigger 'ContestReceiver'
         val intent = Intent(context, ContestReceiver::class.java).apply {
             putExtra("ALARM_TITLE", "🏆 Contest in 30 Mins!")
             putExtra("ALARM_MESSAGE", "Get ready for: $name")
         }
 
-        // Use the Contest ID as the RequestCode so we update existing alarms instead of creating duplicates
+        // 2. Create a Unique PendingIntent using the Contest ID
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            id,
+            contestId, // Unique ID ensures one alarm per contest
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Set the Exact Alarm
+        // 3. Schedule the Exact Alarm
         try {
             alarmManager.setExactAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
-                timeMillis,
+                triggerTime,
                 pendingIntent
             )
+            Log.d("ContestWorker", "Scheduled alarm for $name at $triggerTime")
         } catch (e: SecurityException) {
-            // Android 12+ requires explicit permission, which we added in Manifest
             e.printStackTrace()
         }
     }

@@ -17,11 +17,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // STOP ALARM ON APP OPEN
-        val stopIntent = Intent(this, AlarmService::class.java).apply { action = "STOP" }
+        // --- SAFETY LOCK: FORCE STOP ALARM ON OPEN ---
+        // This ensures the alarm never rings just because you opened the app.
+        val stopIntent = Intent(this, AlarmService::class.java).apply {
+            action = "STOP"
+        }
         startService(stopIntent)
 
-        // Permission Request
+        // Request Permissions (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ActivityCompat.requestPermissions(
                 this,
@@ -44,7 +47,8 @@ class MainActivity : ComponentActivity() {
         val currentDate = Calendar.getInstance()
         val dueDate = Calendar.getInstance()
 
-        dueDate.set(Calendar.HOUR_OF_DAY, 22) // 10 PM
+        // Set Execution time to 10:30 PM
+        dueDate.set(Calendar.HOUR_OF_DAY, 22)
         dueDate.set(Calendar.MINUTE, 30)
         dueDate.set(Calendar.SECOND, 0)
 
@@ -67,7 +71,13 @@ class MainActivity : ComponentActivity() {
 
     private fun scheduleContestSync(context: Context) {
         val workManager = androidx.work.WorkManager.getInstance(context)
+        // Run this check once every 12 hours
         val syncRequest = androidx.work.PeriodicWorkRequestBuilder<ContestWorker>(12, TimeUnit.HOURS).build()
-        workManager.enqueueUniquePeriodicWork("ContestSyncWork", androidx.work.ExistingPeriodicWorkPolicy.UPDATE, syncRequest)
+
+        workManager.enqueueUniquePeriodicWork(
+            "ContestSyncWork",
+            androidx.work.ExistingPeriodicWorkPolicy.UPDATE,
+            syncRequest
+        )
     }
 }

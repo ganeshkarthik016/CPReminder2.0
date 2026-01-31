@@ -20,30 +20,36 @@ import androidx.core.app.NotificationCompat
 class AlarmService : Service() {
 
     private var mediaPlayer: MediaPlayer? = null
-    // CHANGED ID: V4 ensures a fresh start for the notification settings
-    private val CHANNEL_ID = "CHANNEL_FINAL_V4"
-
+    private val CHANNEL_ID = "CHANNEL_FINAL_V6"
     private val autoStopHandler = Handler(Looper.getMainLooper())
-    private val autoStopRunnable = Runnable { stopAlarm() }
+    private val autoStopRunnable = Runnable { stopSelf() }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val action = intent?.action
+        if (intent == null) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
 
-        // 1. HANDLE STOP BUTTON CLICK
+        val action = intent.action
         if (action == "STOP") {
             stopAlarm()
             return START_NOT_STICKY
         }
 
-        val title = intent?.getStringExtra("TITLE") ?: "Alarm"
-        val message = intent?.getStringExtra("MESSAGE") ?: "Wake up!"
+        val title = intent.getStringExtra("TITLE")
+        // If there is NO title, it means it wasn't called by our ContestReceiver.
+        // It's a ghost. Kill it.
+        if (title == null) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
 
-        // 2. CREATE THE NOTIFICATION (This is the feature you wanted!)
+        // --- If we survive the Zombie Check, it's a real alarm! ---
+        val message = intent.getStringExtra("MESSAGE") ?: "Wake up!"
         val notification = createNotification(title, message)
 
-        // 3. START FOREGROUND (Android 14 Safe)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             try {
                 startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
@@ -59,8 +65,12 @@ class AlarmService : Service() {
         return START_STICKY
     }
 
-    private fun playAlarm() {
+    override fun onDestroy() {
+        super.onDestroy()
         stopAlarm()
+    }
+
+    private fun playAlarm() {
         try {
             val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             mediaPlayer = MediaPlayer().apply {
@@ -75,7 +85,6 @@ class AlarmService : Service() {
                 prepare()
                 start()
             }
-            // Auto-stop after 20 seconds
             autoStopHandler.postDelayed(autoStopRunnable, 20000)
         } catch (e: Exception) {
             e.printStackTrace()
@@ -93,29 +102,23 @@ class AlarmService : Service() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
-
-        Handler(Looper.getMainLooper()).post {
-            Toast.makeText(this, "Alarm Stopped", Toast.LENGTH_SHORT).show()
-        }
+        // We don't show Toast on onDestroy to avoid spamming user on app close
     }
 
-    // --- HERE IS THE NOTIFICATION LOGIC YOU WANTED ---
     private fun createNotification(title: String, message: String): android.app.Notification {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(CHANNEL_ID, "CP Alarm Service", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Loud alarm for contests"
                 enableVibration(true)
-                setSound(null, null) // Silent because MediaPlayer plays the sound
+                setSound(null, null)
             }
             manager.createNotificationChannel(channel)
         }
 
-        val stopIntent = Intent(this, AlarmService::class.java).apply { action = "STOP" }
-        val stopPendingIntent = PendingIntent.getService(
+        // Point to Kill Switch
+        val stopIntent = Intent(this, StopAlarmReceiver::class.java)
+        val stopPendingIntent = PendingIntent.getBroadcast(
             this, 0, stopIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -130,11 +133,10 @@ class AlarmService : Service() {
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
-            .setVibrate(longArrayOf(0, 500, 1000)) // Force Pop-up
+            .setVibrate(longArrayOf(0, 500, 1000))
             .setContentIntent(openPendingIntent)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "STOP ALARM", stopPendingIntent) // <--- HERE IT IS
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "STOP ALARM", stopPendingIntent)
             .build()
     }
 }

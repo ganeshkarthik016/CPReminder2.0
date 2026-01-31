@@ -1,7 +1,5 @@
 package com.example.cpreminder20
 
-import android.content.Intent
-import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,22 +19,29 @@ fun ProfileScreen() {
     val preferenceManager = remember { PreferenceManager(context) }
 
     val savedHandle by preferenceManager.getHandle.collectAsState(initial = null)
-    val isAlarmOn by preferenceManager.isAlarmEnabled.collectAsState(initial = true)
+    val isContestAlarmOn by preferenceManager.isContestAlarmOn.collectAsState(initial = true)
+    val isDailyCheckOn by preferenceManager.isDailyCheckOn.collectAsState(initial = true) // New State
 
     var userProfile by remember { mutableStateOf<User?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     var textInput by remember { mutableStateOf("") }
 
-    // Auto-fetch profile stats
+    // Auto-fetch profile
     LaunchedEffect(savedHandle) {
         if (!savedHandle.isNullOrEmpty()) {
             isLoading = true
+            errorMessage = null
             try {
                 val response = RetrofitInstance.api.getUserInfo(savedHandle!!)
                 if (response.status == "OK" && response.result.isNotEmpty()) {
                     userProfile = response.result[0]
+                } else {
+                    errorMessage = "User not found"
                 }
-            } catch (e: Exception) { }
+            } catch (e: Exception) {
+                errorMessage = "Error: ${e.message}"
+            }
             isLoading = false
         }
     }
@@ -70,7 +75,7 @@ fun ProfileScreen() {
                     }
                 }
             } else {
-                Text("⚠️ Stats failed to load.", color = Color.Gray)
+                Text("⚠️ ${errorMessage ?: "Stats failed to load"}", color = Color.Red)
             }
         }
 
@@ -91,27 +96,25 @@ fun ProfileScreen() {
         HorizontalDivider()
         Spacer(modifier = Modifier.height(16.dp))
 
-        // --- ALARM SWITCH ---
+        // --- SWITCH 1: CONTEST ALARMS ---
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Contest Alarms (20s)", style = MaterialTheme.typography.titleMedium)
-            Switch(checked = isAlarmOn, onCheckedChange = { isChecked -> scope.launch { preferenceManager.setAlarmsEnabled(isChecked) } })
+            Text("Contest Alarms (30m before)", style = MaterialTheme.typography.titleMedium)
+            Switch(checked = isContestAlarmOn, onCheckedChange = { isChecked -> scope.launch { preferenceManager.setContestAlarm(isChecked) } })
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // --- NEW: TEST BUTTON ---
-        OutlinedButton(
-            onClick = {
-                Toast.makeText(context, "Simulating Contest Alarm...", Toast.LENGTH_SHORT).show()
-                val intent = Intent(context, ContestReceiver::class.java).apply {
-                    putExtra("CONTEST_NAME", "TEST ROUND 999")
-                }
-                context.sendBroadcast(intent)
-            },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red)
-        ) {
-            Text("🔊 TEST ALARM (RINGS NOW)")
+        // --- SWITCH 2: DAILY CHECK (NEW) ---
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Column {
+                Text("Daily Streak Check", style = MaterialTheme.typography.titleMedium)
+                Text("Checks at 10:30 PM", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            }
+            Switch(
+                checked = isDailyCheckOn,
+                onCheckedChange = { isChecked -> scope.launch { preferenceManager.setDailyCheck(isChecked) } },
+                colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFFF5722)) // Orange to show it's strict!
+            )
         }
     }
 }

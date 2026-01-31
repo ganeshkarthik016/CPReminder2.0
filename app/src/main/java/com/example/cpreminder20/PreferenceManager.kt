@@ -8,34 +8,31 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-// This creates the DataStore. It MUST be outside the class.
 val Context.dataStore by preferencesDataStore(name = "user_prefs")
 
 class PreferenceManager(private val context: Context) {
 
-    // Keys
-    private val HANDLE_KEY = stringPreferencesKey("cf_handle")
-    private val ALARM_ENABLED_KEY = booleanPreferencesKey("alarm_enabled")
+    companion object {
+        val KEY_HANDLE = stringPreferencesKey("cf_handle")
+        val KEY_CONTEST_ALARM = booleanPreferencesKey("contest_alarm_enabled") // Existing
+        val KEY_DAILY_CHECK = booleanPreferencesKey("daily_check_enabled")     // NEW
+    }
 
-    // --- Handle Logic ---
+    // Save/Get Codeforces Handle
     suspend fun saveHandle(handle: String) {
-        context.dataStore.edit { prefs ->
-            prefs[HANDLE_KEY] = handle
-        }
+        context.dataStore.edit { it[KEY_HANDLE] = handle }
     }
+    val getHandle: Flow<String?> = context.dataStore.data.map { it[KEY_HANDLE] }
 
-    val getHandle: Flow<String?> = context.dataStore.data.map { prefs ->
-        prefs[HANDLE_KEY]
+    // Save/Get Contest Alarm Switch
+    suspend fun setContestAlarm(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_CONTEST_ALARM] = enabled }
     }
+    val isContestAlarmOn: Flow<Boolean> = context.dataStore.data.map { it[KEY_CONTEST_ALARM] ?: true }
 
-    // --- Alarm Switch Logic ---
-    suspend fun setAlarmsEnabled(enabled: Boolean) {
-        context.dataStore.edit { prefs ->
-            prefs[ALARM_ENABLED_KEY] = enabled
-        }
+    // Save/Get Daily 10:30 PM Check Switch
+    suspend fun setDailyCheck(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_DAILY_CHECK] = enabled }
     }
-
-    val isAlarmEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[ALARM_ENABLED_KEY] ?: true // Default is TRUE (Alarms ON)
-    }
+    val isDailyCheckOn: Flow<Boolean> = context.dataStore.data.map { it[KEY_DAILY_CHECK] ?: true }
 }

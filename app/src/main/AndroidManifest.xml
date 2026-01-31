@@ -27,11 +27,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <receiver android:name=".ContestReceiver" />
-        <receiver android:name=".StopReceiver" />
+
         <service
             android:name=".AlarmService"
             android:foregroundServiceType="mediaPlayback" />
+        <receiver android:name=".ContestReceiver" />
+        <receiver android:name=".StopAlarmReceiver" />
     </application>
 
 </manifest>
