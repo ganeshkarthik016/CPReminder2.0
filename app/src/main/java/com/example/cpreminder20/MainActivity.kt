@@ -9,7 +9,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.app.ActivityCompat
-import java.util.Calendar
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
@@ -33,7 +35,13 @@ class MainActivity : ComponentActivity() {
             )
         }
 
-        scheduleDailyCheck(this)
+        lifecycleScope.launch {
+            if (PreferenceManager(this@MainActivity).isDailyCheckOn.first()) {
+                DailyAlarmScheduler.schedule(this@MainActivity)
+            } else {
+                DailyAlarmScheduler.cancel(this@MainActivity)
+            }
+        }
         scheduleContestSync(this)
 
         setContent {
@@ -41,42 +49,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun scheduleDailyCheck(context: Context) {
-        val workManager = androidx.work.WorkManager.getInstance(context)
-
-        val currentDate = Calendar.getInstance()
-        val dueDate = Calendar.getInstance()
-
-        // Set Execution time to 10:30 PM
-        dueDate.set(Calendar.HOUR_OF_DAY, 22)
-        dueDate.set(Calendar.MINUTE, 30)
-        dueDate.set(Calendar.SECOND, 0)
-
-        if (dueDate.before(currentDate)) {
-            dueDate.add(Calendar.HOUR_OF_DAY, 24)
-        }
-
-        val timeDiff = dueDate.timeInMillis - currentDate.timeInMillis
-
-        val dailyWorkRequest = androidx.work.PeriodicWorkRequestBuilder<SubmissionWorker>(24, TimeUnit.HOURS)
-            .setInitialDelay(timeDiff, TimeUnit.MILLISECONDS)
-            .build()
-
-        workManager.enqueueUniquePeriodicWork(
-            "DailyCPCheck",
-            androidx.work.ExistingPeriodicWorkPolicy.UPDATE,
-            dailyWorkRequest
-        )
-    }
-
     private fun scheduleContestSync(context: Context) {
         val workManager = androidx.work.WorkManager.getInstance(context)
+        // Remove the former inexact 24-hour daily worker so it cannot run alongside
+        // the local-time AlarmManager schedule after an app upgrade.
+        workManager.cancelUniqueWork("DailyCPCheck")
         // Run this check once every 12 hours
         val syncRequest = androidx.work.PeriodicWorkRequestBuilder<ContestWorker>(12, TimeUnit.HOURS).build()
 
         workManager.enqueueUniquePeriodicWork(
             "ContestSyncWork",
-            androidx.work.ExistingPeriodicWorkPolicy.UPDATE,
+            androidx.work.ExistingPeriodicWorkPolicy.KEEP,
             syncRequest
         )
     }

@@ -60,7 +60,7 @@ interface CodeforcesApi {
     suspend fun getUserSubmissions(
         @Query("handle") handle: String,
         @Query("from") from: Int = 1,
-        @Query("count") count: Int = 10
+        @Query("count") count: Int = 1000
     ): SubmissionResponse
 
     // Existing: Get Contest List

@@ -11,18 +11,28 @@ import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.os.Build
-import android.os.Handler
 import android.os.IBinder
-import android.os.Looper
+import android.util.Log
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 class AlarmService : Service() {
 
+    companion object {
+        const val ACTION_CHECK_STREAK = "com.example.cpreminder20.CHECK_STREAK"
+    }
+
     private var mediaPlayer: MediaPlayer? = null
     private val CHANNEL_ID = "CHANNEL_FINAL_V6"
-    private val autoStopHandler = Handler(Looper.getMainLooper())
-    private val autoStopRunnable = Runnable { stopSelf() }
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var streakCheckJob: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -35,6 +45,40 @@ class AlarmService : Service() {
         val action = intent.action
         if (action == "STOP") {
             stopAlarm()
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+
+        if (action == ACTION_CHECK_STREAK) {
+            startForeground(1, createNotification("Checking daily streak", "Checking today's Codeforces submissions…"))
+            streakCheckJob?.cancel()
+            streakCheckJob = serviceScope.launch {
+                try {
+                    val preferences = PreferenceManager(this@AlarmService)
+                    if (!preferences.isDailyCheckOn.first()) {
+                        DailyAlarmScheduler.cancel(this@AlarmService)
+                        stopSelf(startId)
+                        return@launch
+                    }
+                    val handle = preferences.getHandle.first()
+                    if (handle.isNullOrBlank()) {
+                        stopSelf(startId)
+                        return@launch
+                    }
+                    if (SubmissionChecker.hasAcceptedSubmissionToday(handle)) {
+                        stopSelf(startId)
+                    } else {
+                        val title = "⚠️ Maintain Your Streak!"
+                        val message = "Hey $handle, you haven't solved any problems today!"
+                        (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+                            .notify(1, createNotification(title, message))
+                        playAlarm()
+                    }
+                } catch (e: Exception) {
+                    Log.e("AlarmService", "Daily streak check failed", e)
+                    stopSelf(startId)
+                }
+            }
             return START_NOT_STICKY
         }
 
@@ -60,12 +104,16 @@ class AlarmService : Service() {
             startForeground(1, notification)
         }
 
+        // A contest and the daily check can arrive close together. Keep a single
+        // player and replace the active alarm rather than stacking players.
+        stopAlarm()
         playAlarm()
 
         return START_STICKY
     }
 
     override fun onDestroy() {
+        serviceScope.cancel()
         super.onDestroy()
         stopAlarm()
     }
@@ -85,14 +133,12 @@ class AlarmService : Service() {
                 prepare()
                 start()
             }
-            autoStopHandler.postDelayed(autoStopRunnable, 20000)
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
     private fun stopAlarm() {
-        autoStopHandler.removeCallbacks(autoStopRunnable)
         try {
             if (mediaPlayer?.isPlaying == true) {
                 mediaPlayer?.stop()

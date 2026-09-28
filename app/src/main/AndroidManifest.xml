@@ -32,6 +32,14 @@
             android:name=".AlarmService"
             android:foregroundServiceType="mediaPlayback" />
         <receiver android:name=".ContestReceiver" />
+        <receiver android:name=".DailyAlarmReceiver" android:exported="false" />
+        <receiver android:name=".AlarmRescheduleReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
         <receiver android:name=".StopAlarmReceiver" />
     </application>
 

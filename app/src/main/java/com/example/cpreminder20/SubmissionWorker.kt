@@ -7,7 +7,6 @@ import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.flow.first
-import java.util.Calendar
 
 class SubmissionWorker(
     context: Context,
@@ -28,25 +27,11 @@ class SubmissionWorker(
         val handle = prefs.getHandle.first() ?: return Result.failure()
 
         return try {
-            // 3. FETCH SUBMISSIONS
-            val response = RetrofitInstance.api.getUserSubmissions(handle)
-            if (response.status == "OK") {
-                val submissions = response.result
-
-                // 4. CHECK IF SOLVED TODAY
-                val todayStart = getStartOfDay()
-
-                // Count submissions made AFTER 12:00 AM today
-                val solvedTodayCount = submissions.count {
-                    (it.creationTimeSeconds * 1000L) > todayStart
-                }
-
-                if (solvedTodayCount == 0) {
-                    // ⚠️ DANGER: NO SUBMISSIONS FOUND! TRIGGER ALARM! ⚠️
-                    triggerAlarm(context, handle)
-                } else {
-                    Log.d("SubmissionWorker", "Safe! User solved $solvedTodayCount problems today.")
-                }
+            val solvedToday = SubmissionChecker.hasAcceptedSubmissionToday(handle)
+            if (!solvedToday) {
+                triggerAlarm(context, handle)
+            } else {
+                Log.d("SubmissionWorker", "Safe! User has an accepted submission today.")
             }
             Result.success()
         } catch (e: Exception) {
@@ -70,12 +55,4 @@ class SubmissionWorker(
         }
     }
 
-    private fun getStartOfDay(): Long {
-        val calendar = Calendar.getInstance()
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        return calendar.timeInMillis
-    }
 }
