@@ -21,24 +21,23 @@ class ContestWorker(
             if (!PreferenceManager(context).isContestAlarmOn.first()) return Result.success()
             // 1. Fetch Contests from Codeforces
             val response = RetrofitInstance.api.getContestList()
-            if (response.status == "OK") {
-                val contests = response.result
+            if (response.status != "OK") return Result.retry()
+            val contests = response.result
 
-                // 2. Filter: Only upcoming contests
-                val upcomingContests = contests.filter { it.phase == "BEFORE" }
-                ContestAlarmRegistry.reconcile(context, upcomingContests.map { it.id }.toSet())
+            // 2. Filter: Only upcoming contests
+            val upcomingContests = contests.filter { it.phase == "BEFORE" }
+            ContestAlarmRegistry.reconcile(context, upcomingContests.map { it.id }.toSet())
 
-                for (contest in upcomingContests) {
-                    // Codeforces time is in Seconds, convert to Milliseconds
-                    val startTimeMillis = contest.startTimeSeconds * 1000L
+            for (contest in upcomingContests) {
+                // Codeforces time is in Seconds, convert to Milliseconds
+                val startTimeMillis = contest.startTimeSeconds * 1000L
 
-                    // 3. Set Alarm for 30 MINUTES BEFORE start
-                    val triggerTime = startTimeMillis - (30 * 60 * 1000)
+                // 3. Set Alarm for 30 MINUTES BEFORE start
+                val triggerTime = startTimeMillis - (30 * 60 * 1000)
 
-                    // Only schedule if the time is in the future
-                    if (triggerTime > System.currentTimeMillis()) {
-                        scheduleAlarm(context, contest.name, triggerTime, contest.id)
-                    }
+                // Only schedule if the time is in the future
+                if (triggerTime > System.currentTimeMillis()) {
+                    scheduleAlarm(context, contest.name, triggerTime, contest.id)
                 }
             }
             Result.success()
