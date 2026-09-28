@@ -11,9 +11,7 @@ import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.os.Build
-import android.os.Handler
 import android.os.IBinder
-import android.os.Looper
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 
@@ -21,8 +19,6 @@ class AlarmService : Service() {
 
     private var mediaPlayer: MediaPlayer? = null
     private val CHANNEL_ID = "CHANNEL_FINAL_V6"
-    private val autoStopHandler = Handler(Looper.getMainLooper())
-    private val autoStopRunnable = Runnable { stopSelf() }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -35,6 +31,7 @@ class AlarmService : Service() {
         val action = intent.action
         if (action == "STOP") {
             stopAlarm()
+            stopSelf(startId)
             return START_NOT_STICKY
         }
 
@@ -60,6 +57,9 @@ class AlarmService : Service() {
             startForeground(1, notification)
         }
 
+        // A contest and the daily check can arrive close together. Keep a single
+        // player and replace the active alarm rather than stacking players.
+        stopAlarm()
         playAlarm()
 
         return START_STICKY
@@ -85,14 +85,12 @@ class AlarmService : Service() {
                 prepare()
                 start()
             }
-            autoStopHandler.postDelayed(autoStopRunnable, 20000)
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
     private fun stopAlarm() {
-        autoStopHandler.removeCallbacks(autoStopRunnable)
         try {
             if (mediaPlayer?.isPlaying == true) {
                 mediaPlayer?.stop()

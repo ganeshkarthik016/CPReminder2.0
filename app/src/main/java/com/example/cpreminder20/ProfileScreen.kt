@@ -99,7 +99,19 @@ fun ProfileScreen() {
         // --- SWITCH 1: CONTEST ALARMS ---
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Contest Alarms (30m before)", style = MaterialTheme.typography.titleMedium)
-            Switch(checked = isContestAlarmOn, onCheckedChange = { isChecked -> scope.launch { preferenceManager.setContestAlarm(isChecked) } })
+            Switch(checked = isContestAlarmOn, onCheckedChange = { isChecked ->
+                scope.launch {
+                    preferenceManager.setContestAlarm(isChecked)
+                    if (isChecked) {
+                        val request = androidx.work.OneTimeWorkRequestBuilder<ContestWorker>().build()
+                        androidx.work.WorkManager.getInstance(context).enqueueUniqueWork(
+                            "ContestSyncOnEnable", androidx.work.ExistingWorkPolicy.REPLACE, request
+                        )
+                    } else {
+                        ContestAlarmRegistry.cancelAll(context)
+                    }
+                }
+            })
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -112,7 +124,12 @@ fun ProfileScreen() {
             }
             Switch(
                 checked = isDailyCheckOn,
-                onCheckedChange = { isChecked -> scope.launch { preferenceManager.setDailyCheck(isChecked) } },
+                onCheckedChange = { isChecked ->
+                    scope.launch {
+                        preferenceManager.setDailyCheck(isChecked)
+                        if (isChecked) DailyAlarmScheduler.schedule(context) else DailyAlarmScheduler.cancel(context)
+                    }
+                },
                 colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFFF5722)) // Orange to show it's strict!
             )
         }

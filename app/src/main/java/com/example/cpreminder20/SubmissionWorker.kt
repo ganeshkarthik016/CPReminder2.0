@@ -28,25 +28,29 @@ class SubmissionWorker(
         val handle = prefs.getHandle.first() ?: return Result.failure()
 
         return try {
-            // 3. FETCH SUBMISSIONS
-            val response = RetrofitInstance.api.getUserSubmissions(handle)
-            if (response.status == "OK") {
-                val submissions = response.result
-
-                // 4. CHECK IF SOLVED TODAY
-                val todayStart = getStartOfDay()
-
-                // Count submissions made AFTER 12:00 AM today
-                val solvedTodayCount = submissions.count {
-                    (it.creationTimeSeconds * 1000L) > todayStart
+            // 3. CHECK ALL SUBMISSIONS SINCE LOCAL MIDNIGHT. The API is newest-first;
+            // page until submissions are older than today to avoid missing an AC
+            // when the user has made more than ten submissions today.
+            val todayStart = getStartOfDay()
+            var from = 1
+            var solvedToday = false
+            var keepPaging = true
+            while (keepPaging && !solvedToday) {
+                val response = RetrofitInstance.api.getUserSubmissions(handle, from, 1000)
+                if (response.status != "OK") return Result.retry()
+                val page = response.result
+                solvedToday = page.any {
+                    it.creationTimeSeconds * 1000L >= todayStart && it.verdict == "OK"
                 }
+                keepPaging = page.size == 1000 &&
+                    page.last().creationTimeSeconds * 1000L >= todayStart
+                from += page.size
+            }
 
-                if (solvedTodayCount == 0) {
-                    // ⚠️ DANGER: NO SUBMISSIONS FOUND! TRIGGER ALARM! ⚠️
-                    triggerAlarm(context, handle)
-                } else {
-                    Log.d("SubmissionWorker", "Safe! User solved $solvedTodayCount problems today.")
-                }
+            if (!solvedToday) {
+                triggerAlarm(context, handle)
+            } else {
+                Log.d("SubmissionWorker", "Safe! User has an accepted submission today.")
             }
             Result.success()
         } catch (e: Exception) {
