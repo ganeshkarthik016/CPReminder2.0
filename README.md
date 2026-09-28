@@ -1,75 +1,52 @@
-# 🏆 CP Reminder 2.0
+# CP Reminder 2.0
 
-**Never miss a Codeforces contest or break your daily streak again.**
-
-CP Reminder 2.0 is a smart Android application built with **Jetpack Compose** and **Kotlin**. It automatically tracks your Codeforces schedule and ensures you stay consistent with your competitive programming journey.
+An Android app that helps competitive programmers stay consistent by reminding them about **Codeforces contests** and their **daily submissions**.
 
 <p align="center">
-  <img src="screenshots/home_screen.png" width="250" alt="Home Screen">
-  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="screenshots/home_screen.png" width="250" alt="CP Reminder 2.0">
 </p>
 
-## ✨ Key Features
+## Features
 
-### 1. 📊 Live User Stats
-- Fetches real-time data from the **Codeforces API**.
-- Displays your Handle, Current Rating, Max Rating, and Rank.
-- **Dynamic UI:** The rank color changes automatically (Green for Pupil, Blue for Expert, Red for Grandmaster, etc.).
+- **Contest Reminders**  
+  Fetches upcoming Codeforces contests and sets an alarm 30 minutes before each contest.
 
-### 2. ⏰ Smart Contest Alarms
-- Automatically fetches upcoming contests in the background using **WorkManager**.
-- Schedules a **Loud Alarm** exactly **30 minutes before** any contest starts.
-- **Android 14 Ready:** Uses a Foreground Service with `mediaPlayback` type to ensure the alarm rings even on the latest Android versions.
+- **Daily Streak Reminder**  
+  Checks at 10:30 PM whether you have made a Codeforces submission that day and reminds you if you haven't.
 
-### 3. 🔥 Daily Streak Guardian
-- Runs a background check every night at **10:30 PM**.
-- Checks if you have solved at least **one problem** today.
-- **0 Submissions?** The alarm rings to wake you up and save your streak!
-- **Solved?** The app stays silent and lets you sleep.
+- **Codeforces Stats**  
+  Displays your handle, rating, max rating, and rank using the Codeforces API.
 
-### 4. 🛑 Robust Alarm System
-- **Heads-Up Notification:** High-priority pop-up with an instant "STOP ALARM" button.
-- **Kill Switch:** Uses a dedicated BroadcastReceiver to kill the service instantly when you dismiss the alarm.
-- **Zombie Check:** Intelligent logic prevents the alarm from ringing accidentally when you restart the phone or app.
+- **Reliable Background Execution**  
+  Uses WorkManager, exact alarms, foreground services, and BroadcastReceivers to handle Android background restrictions.
 
-## 🛠️ Tech Stack
+## Tech Stack
 
-* **Language:** Kotlin
-* **UI:** Jetpack Compose (Material 3)
-* **Networking:** Retrofit & Gson (Codeforces API)
-* **Background Tasks:** WorkManager (Periodic Sync)
-* **Local Storage:** DataStore Preferences
-* **Services:** Foreground Service & BroadcastReceivers
-* **Concurrency:** Coroutines & Flow
+- **Kotlin**
+- **Jetpack Compose**
+- **WorkManager & AlarmManager**
+- **Foreground Services & BroadcastReceivers**
+- **Retrofit & Gson**
+- **DataStore**
+- **Coroutines & Flow**
+- **Codeforces API**
 
-## 🚀 How to Run
+## Featured
 
-1.  **Clone the Repository:**
-    ```bash
-    git clone [https://github.com/YourUsername/CPReminder2.0.git](https://github.com/YourUsername/CPReminder2.0.git)
-    ```
-2.  **Open in Android Studio:**
-    * File -> Open -> Select the folder.
-3.  **Sync Gradle:**
-    * Let Android Studio download the dependencies.
-4.  **Run:**
-    * Connect your phone or use an Emulator.
-    * Click the green "Run" button.
+Featured in **GENZ TECH Campus Radar #11** for the technical implementation of reliable Codeforces reminders on Android.
 
-## 📱 Permissions Used
+[Read the feature](https://genztech.blog/p/cp-reminder-iiit-jabalpur-codeforces-streak/)
 
-* `INTERNET`: To fetch contest data and user stats.
-* `POST_NOTIFICATIONS`: To show the alarm pop-up.
-* `FOREGROUND_SERVICE`: To play the alarm sound continuously.
-* `SCHEDULE_EXACT_ALARM`: To ensure the contest alarm rings at the exact right minute.
+## Run Locally
 
-## 👨‍💻 Author
+1. Clone the repository.
+2. Open the project in Android Studio.
+3. Sync Gradle dependencies.
+4. Connect an Android device or start an emulator.
+5. Run the app.
 
-**Ganesh Karthik (GK)**
-* IIIT Jabalpur
-* Connect with me on [LinkedIn](www.linkedin.com/in/ganeshkarthikb) 
+## Author
 
----
-*Built with ❤️ for the Competitive Programming Community.*
-
-
+**Ganesh Karthik**  
+IIIT Jabalpur
+```
