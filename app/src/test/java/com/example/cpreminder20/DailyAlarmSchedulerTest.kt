@@ -49,6 +49,22 @@ class DailyAlarmSchedulerTest {
         assertEquals(30, result.get(Calendar.MINUTE))
     }
 
+    @Test
+    fun onlyAcceptedSubmissionTodayCountsAsSolved() {
+        val todayStart = localTime(2026, Calendar.SEPTEMBER, 28, 0, 0)
+        val submissions = listOf(
+            Submission(1, (todayStart / 1000L) + 60, "WRONG_ANSWER"),
+            Submission(2, (todayStart / 1000L) - 1, "OK")
+        )
+        assertEquals(false, SubmissionChecker.hasAcceptedSubmissionToday(submissions, todayStart))
+        assertEquals(
+            true,
+            SubmissionChecker.hasAcceptedSubmissionToday(
+                submissions + Submission(3, todayStart / 1000L, "OK"), todayStart
+            )
+        )
+    }
+
     private fun localTime(
         year: Int, month: Int, day: Int, hour: Int, minute: Int,
         zone: TimeZone = kolkata

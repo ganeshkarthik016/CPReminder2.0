@@ -7,7 +7,6 @@ import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.flow.first
-import java.util.Calendar
 
 class SubmissionWorker(
     context: Context,
@@ -28,25 +27,7 @@ class SubmissionWorker(
         val handle = prefs.getHandle.first() ?: return Result.failure()
 
         return try {
-            // 3. CHECK ALL SUBMISSIONS SINCE LOCAL MIDNIGHT. The API is newest-first;
-            // page until submissions are older than today to avoid missing an AC
-            // when the user has made more than ten submissions today.
-            val todayStart = getStartOfDay()
-            var from = 1
-            var solvedToday = false
-            var keepPaging = true
-            while (keepPaging && !solvedToday) {
-                val response = RetrofitInstance.api.getUserSubmissions(handle, from, 1000)
-                if (response.status != "OK") return Result.retry()
-                val page = response.result
-                solvedToday = page.any {
-                    it.creationTimeSeconds * 1000L >= todayStart && it.verdict == "OK"
-                }
-                keepPaging = page.size == 1000 &&
-                    page.last().creationTimeSeconds * 1000L >= todayStart
-                from += page.size
-            }
-
+            val solvedToday = SubmissionChecker.hasAcceptedSubmissionToday(handle)
             if (!solvedToday) {
                 triggerAlarm(context, handle)
             } else {
@@ -74,12 +55,4 @@ class SubmissionWorker(
         }
     }
 
-    private fun getStartOfDay(): Long {
-        val calendar = Calendar.getInstance()
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        return calendar.timeInMillis
-    }
 }
